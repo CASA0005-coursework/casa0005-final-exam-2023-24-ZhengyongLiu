@@ -1,10 +1,11 @@
 ---
-title: "Name: Zhengyong Liu"
-author: 
-- |
-    | Student number: 22203612
+title: 'Name: Zhengyong Liu'
+author: "|"
+  | Student number: 22203612
 date: "`r format(Sys.time(), '%X, %d %B, %Y')`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 # Originality declaration  
 
@@ -238,3 +239,8 @@ Stanford News. (2016). Stanford big data study finds racial disparities in Oakla
 
 Pew Research Center. (2019). From Police to Parole: Black and White Americans Differ Widely in Their Views of Criminal Justice System. Available at: https://www.pewresearch.org/short-reads/2019/05/21/from-police-to-parole-black-and-white-americans-differ-widely-in-their-views-of-criminal-justice-system/[Accessed 15 Dec. 2023].
 
+Gabbidon, S.L. and Higgins, G.E., 2009. The role of race/ethnicity and race relations on public opinion related to the treatment of blacks by the police. Police quarterly, 12(1), pp.102-115.
+
+Kim, J. and Kiesel, A., 2018. The long shadow of police racial treatment: Racial disparity in criminal justice processing. Public Administration Review, 78(3), pp.422-431.
+
+Lundman, R.J. and Kaufman, R.L., 2003. Driving while black: Effects of race, ethnicity, and gender on citizen self‐reports of traffic stops and police actions. Criminology, 41(1), pp.195-220.
