@@ -2,16 +2,239 @@
 title: "Name: Zhengyong Liu"
 author: 
 - |
-    | Student number: TEST
+    | Student number: 22203612
 date: "`r format(Sys.time(), '%X, %d %B, %Y')`"
 output: html_document
 ---
 # Originality declaration  
 
-I, [**insert your name**], confirm that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work.
+I, [**Zhengyong Liu**], confirm that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work.
 
 date: `r format(Sys.time(), '%d %B, %Y')`
 
-# Start your response here
+# Chapter 1
+## Introduction
+The issue of racial bias in policing has garnered widespread attention in recent years, prompting the need for comprehensive, data-driven analyses to understand and address these disparities. The Stanford Open Policing Project, a landmark initiative that provides a large dataset on police traffic stops, offers a unique opportunity to explore this pressing issue.
 
-## Initial project scope
+The purpose of this study is to combine Stanford Open Policing data with local demographic information to reveal potential racial bias in Columbus police traffic stops. Emphasis will be placed on inspections. related to the spatial distribution of diverse racial and ethnic communities.
+
+Given the sensitivity and societal importance of the topic, this study is committed to objectivity and thoroughness. The findings are intended to inform policy decisions, strengthen community-police relations, and contribute to a broader discussion of racial equity in law enforcement practice.
+
+This introductory section sets the stage for a detailed exploration of the data and methods used, followed by an analysis of the findings and their implications. The ultimate goal is to provide a comprehensive, evidence-based perspective on the presence and patterns of racial bias in police traffic stops in Columbus, Ohio.
+
+
+## Data selection
+The data selected were those related to police stations between 2012 and 2016, which collected police data about traffic stops to identify racial bias in policing.
+
+Dealing with missing data
+
+Identify missing or "NA"; values in key columns such as "Jurisdiction", "Region", "Subject Race ", "Subject Gender", etc.
+Depending on the amount and significance of the missing data, determine whether missing values should be imputed or whether records should be removed from the analysis.
+
+## Research Question
+Examining Racial Bias in Police Traffic Stops: A Geographical Perspective in Columbus, Ohio
+
+### Initial project scope
+1. Look at the profile of different races across the region
+2. Analyse the density of coloured races in the region
+3. Summarise the causes and potential problems of racial discrimination.
+
+### Loading package
+```{r}
+library(here)
+library(sp)
+library(rgeos)
+library(maptools)
+library(tmap)
+library(sf)
+library(geojson)
+library(geojsonio)
+library(janitor)
+library(stringr)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(rgdal)
+library(ggplot2)
+library(spatstat)
+```
+
+# Chapter 2 Clean Data
+## Insert the SHP & CSV
+```{r}
+Ohio_Shape <- st_read(here::here("Police_Precincts/Police_Precincts.shp"))
+Ohio_Shape <- st_transform(Ohio_Shape, 4326)
+
+Police_Data <- read.csv(here::here("oh_columbus_2020_04_01.csv")) %>%
+  replace(., . == "", NA) %>%
+  clean_names() %>%
+  filter(!is.na(lat), !is.na(lng), !is.na(zone)) %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326)
+```
+
+# Chapter 3 Basic Data Analysis
+## General Distribution
+The choice to carry out "conducted search" when screening data is based on the fact that this behaviour is subject to strict human rights regulations. Such a procedure involves a high degree of concern for the privacy and dignity of the individual and must be carried out in a manner that ensures both necessity and legality. Data filtering must therefore be performed in compliance with strict legal and ethical standards to ensure that the rights and freedoms of individuals are fully respected and protected.
+
+```{r}
+# Sifting through the 2016 data
+Police_Data_2016 <- Police_Data %>%
+  filter(grepl("^2016-", date), search_conducted == TRUE)
+
+tmap_mode("plot")
+tm_map <- tm_shape(Ohio_Shape) +
+  tm_polygons(col = NA, alpha = 0.5) +
+  tm_shape(Police_Data_2016) +
+  tm_dots(col = "subject_race", size = 0.03, palette = "viridis")
+
+print(tm_map)
+
+```
+It can be seen that most of the people involved are of black and white ethnicity, with fewer people of other ethnicities, and most of them are located in the city centre area (zone 1).
+
+## Histogram of the percentage of values for different races
+```{r}
+# Calculate the percentage of values for different races
+race_proportions <- Police_Data_2016 %>%
+  count(subject_race) %>%
+  mutate(proportion = n / sum(n))
+
+ggplot(race_proportions, aes(x = subject_race, y = proportion, fill = subject_race)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Histogram of the percentage of values for different races, 2016",
+       x = "Race",
+       y = "proportions") +
+  scale_fill_viridis_d()  
+```
+In the context of conducted search, some data show that blacks are arrested as much as 60 per cent of the time. This fact raises concerns and worries about potential racial bias in law enforcement procedures. The relationship between race and law enforcement is a complex social issue.
+
+This phenomenon may reflect the underlying challenges of a number of social issues, including social inequality, racial stereotyping, and unequal law enforcement practices. To gain a deeper understanding of the issue, we need to consider multiple factors, such as socio-economic status, area of residence, and educational attainment, which may be correlated with arrest rates. In addition, the training and policies of law enforcement agencies may also play an important role in this issue.
+
+## Calculation of arrest rates by race
+```{r}
+# Calculate the total number of arrests per race
+arrest_counts <- table(Police_Data_2016$subject_race, Police_Data_2016$arrest_made)
+
+# Calculation of arrest success rate 
+#(number of successful arrests / total number of arrests)
+arrest_success_rate <- arrest_counts[, "TRUE"] / rowSums(arrest_counts)
+
+arrest_success_df <- data.frame(
+  subject_race = names(arrest_success_rate),
+  arrest_success_rate = arrest_success_rate
+)
+
+print(arrest_success_df)
+
+```
+In the data provided, we can observe relatively small differences in arrest rates among different ethnic groups, with Asians in particular having the lowest arrest rates. This phenomenon may be partly due to the fact that the total population of Asia is small and therefore relatively under-represented in the sample. This means that we need to analyse these data in greater depth to ensure the reliability and validity of the results(Stanford News, 2016). Similarly, Hispanic arrest rates may be biased by the limited size of the population. Therefore, we need to be careful in interpreting and analysing these small samples.
+
+Therefore, we decided to focus our analyses on Whites and Blacks. Among these two races, arrest rates differed markedly under similar social conditions. Blacks have significantly more arrests, which raises some suspicions. We cannot exclude the possibility that there are discriminatory or other underlying factors that may lead to blacks being more likely to be arrested, even though they may behave similarly to whites when arrest rates are equal(John Gramlich, 2019).
+
+# Chapter 4 Kernel Density Estimation
+In the previous analyses, we selected the two largest ethnic groups in order to study in depth their geographical distribution of cases. This choice was based on data significance and feasibility considerations, as the largest ethnographic groups usually have the richest data samples and can provide more representative analyses.
+
+By selecting the largest proportion of ethnic groups for further analysis, we were able to better understand their cases trends within different geographical areas and the possible factors behind those trends. This approach helps to provide more specific and targeted insights to help social policymakers better understand and respond to cases in different communities.
+
+## Black People
+```{r}
+Police_Data_2016 <- st_transform(Police_Data_2016, crs = 2823)
+Ohio_Shape <- st_transform(Ohio_Shape, crs = 2823)
+window <- as.owin(Ohio_Shape)
+
+# Subset filtering: only select data points with subject_race "black".
+Black <- as(Police_Data_2016[Police_Data_2016$subject_race == "black", ], "Spatial")
+
+coords <- coordinates(Black)
+
+Black.ppp <- ppp(x = coords[,1], y = coords[,2], window = window)
+
+Black <- density(Black.ppp, sigma = 1500)
+plot(Black)
+
+```
+It can be tentatively inferred from the data that black arrests are more concentrated in the urban core. This phenomenon may be influenced by a number of factors, including socio-economic status, residential patterns, law enforcement practices, and so on. Firstly, urban centres are usually home to a concentration of commercial and cultural activities and therefore have a higher population density, which may lead to more law enforcement actions and potential arrests. Secondly, socio-economic inequalities may result in black people being more at risk of falling into cases and arrest, and therefore black communities in urban centres may be more vulnerable to law enforcement attention.
+
+### K for Black People
+```{r}
+K_Black <- Black.ppp %>%
+  Kest(.,correction = "border") %>%
+  plot()
+```
+Looking at the general shape of the graphs, we can observe some interesting trends. Firstly, the black solid line shows a tendency to be lower than the red dashed line at smaller r-values (correlation distance or scale parameter), which seems to indicate that at smaller spatial scales the phenomenon under study is closer to a random distribution. This situation may imply that correlations are lower on a local scale, i.e., arrest events appear more random over a smaller geographical area.
+
+However, as the r-value increases to a certain point, we can see that the black solid line exceeds the red dashed line. This observation may be indicative of a certain tendency towards aggregation at larger spatial scales. This implies that arrests do not appear to occur randomly on a wider geographical scale, but rather show some aggregation. This distributional trend may indicate that, on a wider scale, certain neighbourhoods or areas have significantly higher arrest rates than others. This phenomenon may involve a complex set of social, economic or geographical factors that require further research and analysis to better understand.
+
+## White People
+```{r}
+Police_Data_2016 <- st_transform(Police_Data_2016, crs = 2823)
+Ohio_Shape <- st_transform(Ohio_Shape, crs = 2823)
+window <- as.owin(Ohio_Shape)
+
+# Subset filtering: only select data points with subject_race "black".
+White <- as(Police_Data_2016[Police_Data_2016$subject_race == "white", ], "Spatial")
+
+coords <- coordinates(White)
+
+White.ppp <- ppp(x = coords[,1], y = coords[,2], window = window)
+
+White <- density(White.ppp, sigma = 1500)
+plot(White)
+
+```
+White cases is more skewed towards the west side of the city. We understand that black arrests are more concentrated in urban centres. However, it is important to note that this trend cannot simply be applied to white cases. The geographic distribution of white cases is influenced by a variety of factors that cannot be easily generalised through simple patterns or motifs. The geographical distribution of white offences may be related to factors such as their socio-economic status, level of education, choice of residence and law enforcement practices.
+
+### K for White People
+```{r}
+K_White <- White.ppp %>%
+  Kest(.,correction = "border") %>%
+  plot()
+```
+At smaller scales r, the black line is lower than the red line, which may indicate that at small scales cases events are more evenly distributed, with no clear tendency towards clustering. However, as the scale r increases, the black line rises and exceeds the red line, indicating a clustering trend of cases events at larger spatial scales.
+
+
+# Chapter 5 Cluster Analysis
+Cluster analyses were carried out for each of the two selected ethnic groups.
+## Black People Cluster
+```{r}
+coords <- st_coordinates(Police_Data_2016[Police_Data_2016$subject_race == "black", ])
+dbscan_resultB <- dbscan(coords, eps = 1100, MinPts = 6)
+plot(dbscan_resultB, coords)
+plot(Ohio_Shape$geometry, add=T)
+```
+It can be briefly seen that the cases of blacks are mainly concentrated in the city centre and have a tendency to extend to the periphery.
+
+## White People Cluster
+```{r}
+coords <- st_coordinates(Police_Data_2016[Police_Data_2016$subject_race == "white", ])
+
+dbscan_resultW <- dbscan(coords, eps = 1400, MinPts = 20)
+
+plot(dbscan_resultW, coords)
+plot(Ohio_Shape$geometry, add=T)
+```
+White people's case is mainly concentrated in the city centre to a greater extent, with less around the periphery, and there is no clear trend.
+
+# Chapter 6
+## Final Conclusion
+The study was analysed from the perspective of people of colour, with the aim of exploring whether there are race-related inequities in police law enforcement. The study began by selecting two main racial groups to analyse, Black and White, as the relatively small amount of data on other races made it difficult to be representative. The study also chose the most recent data source available, 2016, and paid particular attention to frisking during law enforcement as an important factor in representativeness.
+
+In the course of the data analysis, the study found that 60 per cent of black people ended up being arrested in the event of being conducted search, compared to only 20 per cent of white people. This finding suggests that there may be some level of racial bias in law enforcement, in that police officers are more inclined to arrest blacks. However, the study also points out that this bias cannot be completely ruled out by social factors, as there may be other explanatory factors.
+
+In addition, the study analysed the data from a spatial perspective and found that black cases were generally located in downtown Columbus, Ohio, and extended into the surrounding areas. This seems to indicate that at a smaller geographic scale, the phenomenon studied is closer to a random distribution, i.e., the occurrence of cases is not a concentrated phenomenon in a specific location. However, at a larger geographic scale, the arrest phenomenon appears to exhibit some clustering, i.e., higher arrest rates in certain areas. In contrast, white cases were relatively evenly distributed with no apparent clustering trend, particularly in some areas in the western part of the city.
+
+Overall, the study provides useful information about possible racial inequities in police enforcement. However, the study also highlights the need to explain the phenomenon by taking into account a combination of social and geographical factors in order to gain a fuller understanding of the issues involved.
+
+## Reflection
+In this study on racial bias and law enforcement practices, we see the problem of possible racial bias in policy formulation and implementation by law enforcement agencies, which emphasises the importance of ensuring that all races are treated equally in law enforcement. In addition, the study reveals the limitations of data analysis, particularly the impact of social factors, such as economic background and historical factors, on racial issues, reminding us of the need to consider a more comprehensive socio-economic context when analysing racial issues. At the same time, by looking at the differences in the geographical distribution of cases of different races, it is possible to reflect the differences in economic conditions, education levels and social services in different communities. This further emphasises the need for fair enforcement of the law in a diverse society, and that more training may be needed for law enforcement officers to enhance their understanding of and respect for cultural differences. Finally, the study also provides clues for future research directions, such as exploring data from other racial groups or considering additional variables to gain a deeper understanding of racial inequality.
+
+## Limitation
+In evaluating the study on law enforcement behaviour in Columbus, Ohio in 2016, we noted several key limitations. First, the limited scope and representativeness of the study's data, which is confined to specific areas and years, may affect the general applicability of its results, making it difficult to accurately reflect conditions in other areas or time periods. Second, the study's selection of racial groups focused primarily on comparisons between blacks and whites, ignoring other racial groups and potentially omitting inequities against other minority ethnic groups. In addition, although the study reveals racial disparities in law enforcement behaviour, it does not fully elucidate the underlying causes of these disparities, for example, it is not possible to determine whether there is systematic racial bias or whether these disparities are simply the result of socio-economic factors. The study may also have failed to adequately consider complex social factors that influence law enforcement behaviour, such as economic status, educational background and region of residence. Particularly in the analysis of frisking behaviour, the research appears to have ignored the possible impact of other law enforcement segments (such as arrest, prosecution or sentencing), which are equally likely to be affected by racial bias. Finally, while the study considered the geographic distribution of cases, it may not have delved into the reasons behind those distributions, such as factors such as the historical background of the community, economic status, and police allocation.
+
+
+# Reference
+Stanford News. (2016). Stanford big data study finds racial disparities in Oakland, Calif., police behavior, offers solutions. Available at: https://news.stanford.edu/2016/06/15/stanford-big-data-study-finds-racial-disparities-oakland-calif-police-behavior-offers-solutions/[Accessed 15 Dec. 2023].
+
+Pew Research Center. (2019). From Police to Parole: Black and White Americans Differ Widely in Their Views of Criminal Justice System. Available at: https://www.pewresearch.org/short-reads/2019/05/21/from-police-to-parole-black-and-white-americans-differ-widely-in-their-views-of-criminal-justice-system/[Accessed 15 Dec. 2023].
+
